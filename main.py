@@ -1,9 +1,10 @@
 import os
+from tkinter.messagebox import NO
 from unicodedata import name
 import discord
 import json
 import random
-
+import time
 from functions import *
 from datetime import datetime
 from datetime import date
@@ -11,80 +12,82 @@ from discord.ext import commands
 jsonfile = open('package.json')
 jsondata = jsonfile.read()
 obj = json.loads(jsondata)
-Intents=discord.Intents.default() 
-Intents.members=True 
-client=discord.Client(intents=Intents)
 
+Intents=discord.Intents.all() 
+Intents.members=True 
+client=commands.Bot(command_prefix='=',intents=Intents)
+client.remove_command("help")
+link="https://discord.gg/bZcT9EqWdN"
 help_message = """Commands:
 
-=help      : For help.
-=test      : Test if the bot is available"""
+=help : For help.
+=test : Test if the bot is up or not.
+=banroulette <user1> <user2> ... : Ban a random user in the list.
+"""
 
 @client.event
 async def on_ready():
   print('Logged as {0.user}'.format(client))
 
-@client.event
-async def on_message(message):
-
-  if message.author == client.user:
-    return
-    
-  if message.content == '=test':
-    datet = get_date_and_time()
-    writelog(datet + " - " + str(message.author) + ": " + str(message.content))
-    await upFunc(message)
-  elif message.content == '=help':
-    datet = get_date_and_time()
-    writelog(datet + " - " + str(message.author) + ": " + str(message.content))
-    await message.channel.send(help_message)
-    writelog(datet + " - " + "SkiBot: " + str(help_message))
-  elif message.content == '=mentionme':
-    datet = get_date_and_time()
-    writelog(datet + " - " + str(message.author) + ": " + str(message.content))
-    msg = '{0.author.mention}'.format(message)
-    await message.channel.send(msg)
-    writelog(datet + " - " + "SkiBot: " + str(msg))
-  elif message.content.startswith('=banroulette'):
-    mess = message.content.split(" ") 
+@client.command()
+@commands.has_permissions(kick_members=True)
+async def banroulette(ctx, *members: discord.Member):
+  datet = get_date_and_time()
+  if not members:
+    await ctx.send("Please enter a least 1 user !")
+  else: 
     mess2 = []
-    mess2 = mess
-    mess2.pop(0)
-    if len(mess2) >= 2: 
+    member_list=[]
+    listMembersForLogs =""
+    for member in members:
+      mess2.append(member)
+      listMembersForLogs += str(member)+"\n"
       datet = get_date_and_time()
-      writelog(datet + " - " + str(message.author) + ": " + str(message.content))
-      mess = message.content.split(" ")
-      member_list=[]
-      listUser = ""
-      ct = 0
-      for member in message.guild.members:
-        member_list.append("<@"+str(member.id)+">")
-        listUser += (str(member.id)+"\n")
+      writelog(f"{datet} - {ctx.author} : =banroulette {listMembersForLogs}")
+    for member in ctx.guild.members:
+      member_list.append(member)
 
-      print(mess2)
-      await message.channel.send(listUser)
-      writelog(datet + " - " + "SkiBot: " + str(listUser))
-      if check_users(member_list, mess2):
-        await message.channel.send("EVERYTHING IS READY")
-        writelog(datet + " - " + "SkiBot: " + "EVERYTHING IS READY")
+    if check_users(member_list,mess2):
+      if isUserInCommand(ctx.author, mess2):
+        await ctx.send("ALL USERS FOUND")
         i = random.randrange(len(mess2))
-        print(i)
-        await message.channel.send(mess2[i])
-      else: 
-        await message.channel.send("USERS ARE INCORRECT")
-    else:
-      await message.channel.send("MISSING PARAMETERS. PLEASE ENTER AT LEAST TWO USERS")
-      datet = get_date_and_time()
-      writelog(datet + " - " + str(message.author) + ": " + str(message.content))
-      writelog(datet + " - " + "SkiBot: " + "MISSING PARAMETERS. PLEASE ENTER AT LEAST TWO USERS")   
-  elif message.content.startswith("="):
-      await message.channel.send("Unknown command. Please type =help")
-#Functions :
+        await ctx.send(mess2[i].id)
+        user = client.get_user(mess2[i].id)
+        maxUserRole = maxRoleUser(mess2[i])
+        botMember = botToMember(ctx,client.user.id)
+        maxBotRole = maxRoleUser(botMember)
+        if maxUserRole < maxBotRole:
+          for x in range(3):
+            await ctx.send(3-x)
+            time.sleep(1)
+          await ctx.send(str(mess2[i]) + " has been banned !")
+          await user.send("Don't cry !\nClick here : "+str(link))
+          await mess2[i].kick()
+        else:
+          await ctx.send("Can't ban this user.")
+      else:
+        await ctx.send("If you want to play, you have to be part of the game 😈")
+    else: 
+      await ctx.send("INCORRECT USERS")
+  #Functions :
 
-async def upFunc(message):
+@client.command()
+async def test(ctx):
   datet = get_date_and_time()
   mess = "I'm up !"
-  await message.channel.send(mess)
+  await ctx.channel.send(mess)
+  member_list = []
+  for member in ctx.guild.members:
+    member_list.append(member)
+  writelog(f"{datet} - {ctx.author.id} {ctx.message.content}")
   writelog(datet + " - " + "SkiBot: " + str(mess))
+
+@client.command()
+async def help(ctx):
+    datet = get_date_and_time()
+    writelog(f"{datet} - {ctx.author} : =banroulette {ctx.message.content}")
+    await ctx.send(f"```{help_message} ```")
+    writelog(datet + " - " + "SkiBot: " + str(help_message))
+
 #Run :
 client.run(obj['token'])
